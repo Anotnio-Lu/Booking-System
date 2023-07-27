@@ -74,7 +74,166 @@ const resolvers = {
   },
 
   Mutation: {
+    updateBookingAssigned: async (_, { bookingId, assigned, runId }, context) => {
+      return await Booking.findByIdAndUpdate(
+        bookingId,
+        { assigned,
+          runId
+         },
+        { new: true }
+      );
+    },
+    addBooking: async (_, { userId, date, time, address, lat, lng }, context) => {
+      const booking = await Booking.create({ date, time, address, lat, lng });
+      await User.findByIdAndUpdate(userId, { $push: { bookings: booking._id } });
+      return booking;
+    },
+    addClient: async (parent, { username, email, password, userType }) => {
 
+      const user = await User.create({ username, email, password, userType });
+      
+      const token = signToken(user);
+      return { token, user };
+    },
+    updateProfile: async (parent, {userId, username, email}, context) => {
+      const user = await User.findById(userId);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+    
+      user.username = username;
+      user.email = email;
+
+      const updatedUser = await user.save();
+
+      const token = signToken(updatedUser);
+      return { user: updatedUser, token};
+    },
+    addUser: async (parent, { admin, username, email, password, userType }) => {
+
+      const user = await User.create({ username, email, password, userType });
+
+        await User.findOneAndUpdate(
+          { username: admin },
+          { $addToSet: { employees: user._id } }
+        );
+
+      const token = signToken(user);
+      return { token, user };
+    },
+    login: async (parent, { email, password }) => {
+      const user = await User.findOne({ email });
+
+      if (!user) {
+        throw new AuthenticationError('No user found with this email address');
+      }
+
+      const correctPw = await user.isCorrectPassword(password);
+
+      if (!correctPw) {
+        throw new AuthenticationError('Incorrect credentials');
+      }
+
+      const token = signToken(user);
+
+      return { token, user };
+    },
+    addRun: async (parent, { userId }) => {
+      const newRun = await Run.create({ });
+    
+      await User.findOneAndUpdate(
+        { _id: userId },
+        { $addToSet: { runs: newRun._id } }
+      );
+     
+      return newRun;
+    },   
+    approveRun: async (parent, { runId }) => {
+      try {
+        const run = await Run.findById(runId);
+        if (!run) {
+          throw new Error('Run not found');
+        }
+
+        run.approved = true;
+        await run.save();
+
+        return run;
+      } catch (err) {
+        throw new Error('Failed to approve run');
+      }
+    }, 
+    addAddress: async (parent, { runId, address, lat, lng, bookingId, assigned}) => {
+      const addressAdded = await Run.findOneAndUpdate(
+        { _id: runId },
+        {
+          $addToSet: { 
+            addresses: { 
+              address: address, 
+              latlng: {
+                lat: lat,
+                lng: lng
+              },
+              bookingId: bookingId
+            }
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      const bookingAdded = await Booking.findByIdAndUpdate(
+        bookingId,
+        { assigned,
+          runId
+         },
+        { new: true }
+      );
+
+      return {addressAdded, bookingAdded }
+    },
+    removeRun: async (parent, { runId }) => {
+      const removedRun = await Run.findOneAndDelete({ _id: runId });
+
+      await User.findOneAndUpdate(
+        { runs: runId },
+        { $pull: { runs: runId } },
+        { new: true }
+      );
+
+      return removedRun;
+    },
+    removeEmployee: async (parent, { admin, userId }) => {
+
+      const removedUser = await User.findOneAndDelete({ _id: userId });
+
+      await User.findOneAndUpdate(
+        { username: admin },
+        { $pull: { employees: userId } },
+        { new: true }
+      );
+
+      return removedUser;
+    },
+    removeAddress: async (parent, { runId, addressId, bookingId, assigned }) => {
+      const addressRemoved = await Run.findOneAndUpdate(
+        { _id: runId },
+        { $pull: { addresses: { _id: addressId } } },
+        { new: true }
+      );
+      const bookingRemoved = await Booking.findByIdAndUpdate(
+        bookingId,
+        { assigned,
+          runId
+         },
+        { new: true }
+      );
+
+      return {addressRemoved, bookingRemoved }
+    },
   },
 };
 

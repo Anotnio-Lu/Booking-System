@@ -82,6 +82,18 @@ const typeDefs = gql`
   }
 
   type Mutation {
+    addUser(admin: String!, username: String!, email: String!, password: String!, userType: UserType!): Auth
+    addClient(username: String!, email: String!, password: String!, userType: UserType!): Auth
+    login(email: String!, password: String!): Auth
+    approveRun(runId: ID!): Run
+    addRun(userId: ID): Run
+    addAddress(runId: ID!, address: String!, lat: String!, lng: String!, bookingId: String, assigned: Boolean): Run
+    removeRun(runId: ID!): Run
+    removeAddress(runId: ID!, addressId: ID!, bookingId: String, assigned: Boolean): Run
+    removeEmployee(admin: String!, userId: String!): User
+    updateProfile(userId: ID!, username: String!, email: String!): Auth
+    addBooking(userId: ID!, date: String!, time: String!, address: String!, lat: String!, lng: String!): Booking
+    updateBookingAssigned(bookingId: ID!, assigned: Boolean!, runId: ID): Booking
   }
 `;
 
